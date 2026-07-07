@@ -5,7 +5,7 @@ Scoutly helps young football players create clean digital profiles for future sc
 ## Stack
 
 - Frontend: React + Vite
-- Backend: Express + TypeScript
+- Local dev server: Express + TypeScript
 - Auth and database: Supabase Auth + Postgres
 
 ## Scope
@@ -69,6 +69,40 @@ The app runs at:
 ```text
 http://localhost:3000
 ```
+
+## Deploy To Vercel
+
+Use these settings when importing the GitHub repo into Vercel:
+
+```text
+Framework Preset: Vite
+Build Command: npm run build
+Output Directory: dist
+Install Command: npm install
+```
+
+Add these Vercel environment variables before deploying:
+
+```bash
+VITE_SUPABASE_URL="https://your-project-id.supabase.co"
+VITE_SUPABASE_PUBLISHABLE_KEY="your-publishable-key"
+```
+
+The app also supports these names if you prefer them:
+
+```bash
+NEXT_PUBLIC_SUPABASE_URL="https://your-project-id.supabase.co"
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY="your-publishable-key"
+```
+
+After deployment, update Supabase Auth URL settings:
+
+```text
+Site URL: https://your-vercel-domain.vercel.app
+Redirect URLs: https://your-vercel-domain.vercel.app/*
+```
+
+Run [supabase-schema.sql](./supabase-schema.sql) in Supabase before testing profiles and uploads. It creates the `players` table and the `player-media` Storage policies.
 
 ## Player Flow
 
