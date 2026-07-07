@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, CheckCircle2, CircleUserRound, PlaySquare, ShieldCheck } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { signUpPlayer } from '../lib/scoutlyClient';
 import heroFootballer from '../assets/scoutly-hero-footballer.webp';
 
 export default function Signup() {
@@ -17,17 +17,24 @@ export default function Signup() {
     setLoading(true);
     setError(null);
     
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-    });
+    try {
+      const result = await signUpPlayer(email, password);
 
-    if (error) {
-      setError(error.message);
+      if (result.session) {
+        navigate('/profile/edit', { replace: true });
+        return;
+      }
+
+      navigate('/login', {
+        replace: true,
+        state: {
+          signupEmail: result.email,
+          signupMessage: 'Your account has been created. Please check your email and verify your address before logging in.',
+        },
+      });
+    } catch (err: any) {
+      setError(err.message || 'Could not create account.');
       setLoading(false);
-    } else {
-      // Direct user straight to profile generation after signing up
-      navigate('/profile/edit');
     }
   };
 

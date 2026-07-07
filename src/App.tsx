@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { supabase } from './lib/supabase';
-import { Session } from '@supabase/supabase-js';
+import { getCurrentSession, onScoutlyAuthChange, type ScoutlySession } from './lib/scoutlyClient';
 
 import Layout from './components/Layout';
 import Landing from './pages/Landing';
@@ -11,26 +10,30 @@ import ProfileView from './pages/ProfileView';
 import ProfileForm from './pages/ProfileForm';
 
 export default function App() {
-  const [session, setSession] = useState<Session | null>(null);
+  const [session, setSession] = useState<ScoutlySession | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setLoading(false);
-    });
+    let mounted = true;
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-    });
+    getCurrentSession()
+      .then((currentSession) => {
+        if (mounted) setSession(currentSession);
+      })
+      .finally(() => {
+        if (mounted) setLoading(false);
+      });
 
-    return () => subscription.unsubscribe();
+    const unsubscribe = onScoutlyAuthChange(setSession);
+
+    return () => {
+      mounted = false;
+      unsubscribe();
+    };
   }, []);
 
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center text-gray-500">Loading...</div>;
+    return <div className="min-h-screen flex items-center justify-center text-sm font-semibold text-slate-500">Loading Scoutly...</div>;
   }
 
   return (

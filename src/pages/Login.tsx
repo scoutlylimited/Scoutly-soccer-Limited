@@ -1,14 +1,22 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, LockKeyhole, ShieldCheck, Sparkles } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { ArrowLeft, ArrowRight, ShieldCheck, Sparkles } from 'lucide-react';
+import { signInPlayer } from '../lib/scoutlyClient';
 import heroFootballer from '../assets/scoutly-hero-footballer.webp';
 
+type LoginLocationState = {
+  signupEmail?: string;
+  signupMessage?: string;
+};
+
 export default function Login() {
-  const [email, setEmail] = useState('');
+  const location = useLocation();
+  const loginState = location.state as LoginLocationState | null;
+  const [email, setEmail] = useState(loginState?.signupEmail || '');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage] = useState(loginState?.signupMessage || null);
   
   const navigate = useNavigate();
 
@@ -17,16 +25,19 @@ export default function Login() {
     setLoading(true);
     setError(null);
     
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    try {
+      const session = await signInPlayer(email, password);
 
-    if (error) {
-      setError(error.message);
+      if (!session) {
+        setError('No active session was returned. Please confirm your email before logging in.');
+        setLoading(false);
+        return;
+      }
+
+      navigate('/', { replace: true });
+    } catch (err: any) {
+      setError(err.message || 'Could not log in.');
       setLoading(false);
-    } else {
-      navigate('/dashboard');
     }
   };
 
@@ -79,7 +90,7 @@ export default function Login() {
         <section className="rounded-3xl border border-slate-100 bg-white p-6 shadow-md shadow-slate-100/50 sm:p-10">
           <div className="mb-8">
             <span className="mb-4 inline-flex h-11 w-11 items-center justify-center rounded-xl bg-green-50 text-[#16A34A]">
-              <LockKeyhole className="h-5 w-5" aria-hidden="true" />
+              <ShieldCheck className="h-5 w-5" aria-hidden="true" />
             </span>
             <p className="text-xs font-black uppercase tracking-[0.18em] text-[#16A34A]">Player Dashboard</p>
             <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-slate-950 font-display">
@@ -91,12 +102,18 @@ export default function Login() {
           </div>
 
           <form className="space-y-5" onSubmit={handleLogin}>
+            {successMessage && (
+              <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-xs font-semibold leading-relaxed text-emerald-700">
+                {successMessage}
+              </div>
+            )}
+
             {error && (
               <div className="rounded-xl border border-red-100 bg-red-50/50 px-4 py-3 text-xs font-semibold text-red-600">
                 {error}
               </div>
             )}
-            
+
             <div>
               <label className="mb-2 block text-xs font-bold uppercase tracking-[0.1em] text-slate-600 ml-0.5">
                 Email Address

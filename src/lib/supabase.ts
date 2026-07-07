@@ -1,6 +1,11 @@
-import { createClient } from '@supabase/supabase-js';
+import { isSupabaseConfigured, supabase } from '../supabaseClient.js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://example.supabase.co';
-const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'public-anon-key';
+export { isSupabaseConfigured, supabase };
 
-export const supabase = createClient(supabaseUrl, supabaseKey);
+export function getSupabaseClient() {
+  if (!isSupabaseConfigured) {
+    throw new Error('Supabase is not configured. Add the Supabase URL and publishable key to .env.');
+  }
+
+  return supabase;
+}

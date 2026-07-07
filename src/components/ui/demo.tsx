@@ -49,12 +49,12 @@ function HoverFooter() {
     },
     {
       icon: <Phone size={16} className="text-[#22C55E]" />,
-      text: "+234 803 000 0000",
-      href: "tel:+2348030000000",
+      text: "Partnerships and support",
+      href: "mailto:hello@scoutly.co",
     },
     {
       icon: <MapPin size={16} className="text-[#22C55E]" />,
-      text: "Lagos, Nigeria",
+      text: "Remote-first football network",
     },
   ];
 
@@ -79,7 +79,7 @@ function HoverFooter() {
               <span className="text-white text-lg font-black tracking-tight font-display">Scoutly</span>
             </div>
             <p className="text-xs leading-relaxed text-slate-400 font-medium">
-              Nigeria's premier digital football scouting platform. Connecting grassroots players with scouts and academies globally.
+              A digital football scouting platform for serious players ready to organize their profile, stats, and highlights.
             </p>
           </div>
 

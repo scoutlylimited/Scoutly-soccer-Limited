@@ -1,5 +1,5 @@
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
+import { signOutPlayer } from '../lib/scoutlyClient';
 import { LogOut, User, Edit3 } from 'lucide-react';
 
 export default function Layout() {
@@ -7,8 +7,8 @@ export default function Layout() {
   const location = useLocation();
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    navigate('/login');
+    await signOutPlayer();
+    navigate('/login', { replace: true });
   };
 
   return (

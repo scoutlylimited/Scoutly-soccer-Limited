@@ -1,11 +1,34 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Session } from '@supabase/supabase-js';
-import { User, Trophy, LayoutGrid, Video, Info } from 'lucide-react';
+import { ImagePlus, Info, LayoutGrid, Trash2, Trophy, User, Video } from 'lucide-react';
+import { fetchMyProfile, saveMyProfile, uploadPlayerMedia, type ScoutlySession } from '../lib/scoutlyClient';
 
 interface ProfileFormProps {
-  session: Session;
+  session: ScoutlySession;
 }
+
+type ProfileFormData = {
+  full_name: string;
+  date_of_birth: string;
+  nationality: string;
+  position: string;
+  secondary_position: string;
+  preferred_foot: string;
+  height_cm: string;
+  weight_kg: string;
+  current_club: string;
+  bio: string;
+  highlight_video_url: string;
+  photo_urls: string[];
+  juggling_video_url: string;
+  goals: number;
+  assists: number;
+  matches_played: number;
+  clean_sheets: number;
+};
+
+const MAX_PHOTO_SIZE = 8 * 1024 * 1024;
+const MAX_VIDEO_SIZE = 100 * 1024 * 1024;
 
 export default function ProfileForm({ session }: ProfileFormProps) {
   const navigate = useNavigate();
@@ -13,8 +36,10 @@ export default function ProfileForm({ session }: ProfileFormProps) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [photoFiles, setPhotoFiles] = useState<File[]>([]);
+  const [jugglingVideoFile, setJugglingVideoFile] = useState<File | null>(null);
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<ProfileFormData>({
     full_name: '',
     date_of_birth: '',
     nationality: '',
@@ -26,6 +51,8 @@ export default function ProfileForm({ session }: ProfileFormProps) {
     current_club: '',
     bio: '',
     highlight_video_url: '',
+    photo_urls: [],
+    juggling_video_url: '',
     goals: 0,
     assists: 0,
     matches_played: 0,
@@ -33,16 +60,15 @@ export default function ProfileForm({ session }: ProfileFormProps) {
   });
 
   useEffect(() => {
-    async function checkProfile() {
+    let mounted = true;
+
+    async function loadProfile() {
       try {
-        const response = await fetch('/api/players/me', {
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`
-          }
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
+        const data = await fetchMyProfile(session);
+
+        if (!mounted) return;
+
+        if (data) {
           setFormData({
             full_name: data.full_name || '',
             date_of_birth: data.date_of_birth || '',
@@ -50,11 +76,13 @@ export default function ProfileForm({ session }: ProfileFormProps) {
             position: data.position || '',
             secondary_position: data.secondary_position || '',
             preferred_foot: data.preferred_foot || '',
-            height_cm: data.height_cm || '',
-            weight_kg: data.weight_kg || '',
+            height_cm: data.height_cm ? String(data.height_cm) : '',
+            weight_kg: data.weight_kg ? String(data.weight_kg) : '',
             current_club: data.current_club || '',
             bio: data.bio || '',
             highlight_video_url: data.highlight_video_url || '',
+            photo_urls: data.photo_urls || [],
+            juggling_video_url: data.juggling_video_url || '',
             goals: data.goals || 0,
             assists: data.assists || 0,
             matches_played: data.matches_played || 0,
@@ -62,14 +90,18 @@ export default function ProfileForm({ session }: ProfileFormProps) {
           });
           setIsUpdating(true);
         }
-      } catch (err) {
-        // Will just stay in creation mode
+      } catch (err: any) {
+        if (mounted) setError(err.message || 'Could not load profile details.');
       } finally {
-        setLoading(false);
+        if (mounted) setLoading(false);
       }
     }
-    
-    checkProfile();
+
+    loadProfile();
+
+    return () => {
+      mounted = false;
+    };
   }, [session]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -82,37 +114,81 @@ export default function ProfileForm({ session }: ProfileFormProps) {
     setFormData(prev => ({ ...prev, [name]: value ? parseInt(value, 10) : '' }));
   };
 
+  const handlePhotoFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = Array.from(e.target.files || []) as File[];
+    const validFiles = selectedFiles.filter((file) => file.type.startsWith('image/') && file.size <= MAX_PHOTO_SIZE);
+
+    if (validFiles.length !== selectedFiles.length) {
+      setError('Photos must be image files under 8MB each.');
+    }
+
+    setPhotoFiles(validFiles.slice(0, 4));
+  };
+
+  const handleJugglingVideoFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = e.target.files?.[0] || null;
+
+    if (!selectedFile) {
+      setJugglingVideoFile(null);
+      return;
+    }
+
+    if (!selectedFile.type.startsWith('video/') || selectedFile.size > MAX_VIDEO_SIZE) {
+      setError('Juggling video must be a video file under 100MB.');
+      e.target.value = '';
+      return;
+    }
+
+    setError(null);
+    setJugglingVideoFile(selectedFile);
+  };
+
+  const removeSavedPhoto = (photoUrl: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      photo_urls: prev.photo_urls.filter((url) => url !== photoUrl),
+    }));
+  };
+
+  const removeJugglingVideo = () => {
+    setJugglingVideoFile(null);
+    setFormData((prev) => ({ ...prev, juggling_video_url: '' }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     setError(null);
 
     try {
-      const method = isUpdating ? 'PATCH' : 'POST';
       const cleanData = { ...formData };
-      
-      // Clean up empty numbers so they don't break postgres
-      if (!cleanData.height_cm) delete (cleanData as any).height_cm;
-      if (!cleanData.weight_kg) delete (cleanData as any).weight_kg;
-      if (!cleanData.date_of_birth) delete (cleanData as any).date_of_birth;
+      const uploadedPhotoUrls = [...cleanData.photo_urls];
 
-      const response = await fetch('/api/players/me', {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`
-        },
-        body: JSON.stringify(cleanData)
-      });
-
-      if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.error || 'Failed to save profile');
+      for (const file of photoFiles) {
+        uploadedPhotoUrls.push(await uploadPlayerMedia(session, file, 'photo'));
       }
+
+      const jugglingVideoUrl = jugglingVideoFile
+        ? await uploadPlayerMedia(session, jugglingVideoFile, 'juggling-video')
+        : cleanData.juggling_video_url;
+
+      await saveMyProfile(session, {
+        ...cleanData,
+        full_name: cleanData.full_name.trim(),
+        height_cm: cleanData.height_cm ? Number(cleanData.height_cm) : null,
+        weight_kg: cleanData.weight_kg ? Number(cleanData.weight_kg) : null,
+        date_of_birth: cleanData.date_of_birth || null,
+        goals: Number(cleanData.goals || 0),
+        assists: Number(cleanData.assists || 0),
+        matches_played: Number(cleanData.matches_played || 0),
+        clean_sheets: Number(cleanData.clean_sheets || 0),
+        photo_urls: uploadedPhotoUrls,
+        juggling_video_url: jugglingVideoUrl || null,
+      }, isUpdating);
 
       navigate('/profile');
     } catch (err: any) {
-      setError(err.message);
+      setError(err.message || 'Failed to save profile');
       setSaving(false);
     }
   };
@@ -128,11 +204,12 @@ export default function ProfileForm({ session }: ProfileFormProps) {
     const fieldsToTrack = [
       'full_name', 'position', 'secondary_position', 'nationality',
       'date_of_birth', 'preferred_foot', 'height_cm', 'weight_kg',
-      'current_club', 'bio', 'highlight_video_url'
+      'current_club', 'bio', 'highlight_video_url', 'photo_urls', 'juggling_video_url'
     ];
     let filled = 0;
     fieldsToTrack.forEach(field => {
-      if (formData[field as keyof typeof formData]) {
+      const value = formData[field as keyof typeof formData];
+      if (Array.isArray(value) ? value.length > 0 : value) {
         filled++;
       }
     });
@@ -200,7 +277,7 @@ export default function ProfileForm({ session }: ProfileFormProps) {
                 <input
                   type="text"
                   name="nationality"
-                  placeholder="e.g. Nigerian"
+                  placeholder="e.g. Brazilian"
                   value={formData.nationality}
                   onChange={handleChange}
                   className={inputClass}
@@ -305,16 +382,87 @@ export default function ProfileForm({ session }: ProfileFormProps) {
             </div>
           </div>
 
-          {/* SECTION 3: Highlights & Biography */}
+          {/* SECTION 3: Photos, Video & Biography */}
           <div className="space-y-4 pt-2">
             <div className="flex items-center gap-1.5 border-b border-slate-50 pb-2">
               <Video className="w-4 h-4 text-slate-400" />
-              <h4 className="text-xs font-black text-slate-400 uppercase tracking-wider">3. Showreel & Biography</h4>
+              <h4 className="text-xs font-black text-slate-400 uppercase tracking-wider">3. Photos, Juggling Video & Biography</h4>
             </div>
 
             <div className="space-y-4">
+              <div className="rounded-2xl border border-slate-100 bg-slate-50/60 p-4">
+                <label className="mb-2 flex items-center gap-2 text-xs font-bold text-slate-600">
+                  <ImagePlus className="h-4 w-4 text-[#16A34A]" aria-hidden="true" />
+                  Player Photos
+                </label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handlePhotoFiles}
+                  className="block w-full cursor-pointer rounded-xl border border-dashed border-slate-200 bg-white px-4 py-3 text-xs font-semibold text-slate-500 file:mr-3 file:rounded-lg file:border-0 file:bg-slate-950 file:px-3 file:py-2 file:text-xs file:font-bold file:text-white hover:border-emerald-300"
+                />
+                <p className="mt-2 text-[10px] font-semibold text-slate-400">
+                  Add up to 4 clear football photos. Each photo must be under 8MB.
+                </p>
+
+                {(formData.photo_urls.length > 0 || photoFiles.length > 0) && (
+                  <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                    {formData.photo_urls.map((photoUrl) => (
+                      <div key={photoUrl} className="group relative overflow-hidden rounded-xl border border-slate-100 bg-white">
+                        <img src={photoUrl} alt="Saved player" className="aspect-square w-full object-cover" />
+                        <button
+                          type="button"
+                          onClick={() => removeSavedPhoto(photoUrl)}
+                          className="absolute right-2 top-2 inline-flex h-7 w-7 items-center justify-center rounded-full bg-slate-950/80 text-white opacity-100 transition hover:bg-red-600 sm:opacity-0 sm:group-hover:opacity-100"
+                          aria-label="Remove photo"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                        </button>
+                      </div>
+                    ))}
+                    {photoFiles.map((file) => (
+                      <div key={`${file.name}-${file.lastModified}`} className="flex aspect-square items-center justify-center rounded-xl border border-dashed border-emerald-200 bg-emerald-50 p-3 text-center text-[10px] font-black text-emerald-700">
+                        Ready: {file.name}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="rounded-2xl border border-slate-100 bg-slate-50/60 p-4">
+                <label className="mb-2 flex items-center gap-2 text-xs font-bold text-slate-600">
+                  <Video className="h-4 w-4 text-[#16A34A]" aria-hidden="true" />
+                  Juggling Ball Video
+                </label>
+                <input
+                  type="file"
+                  accept="video/*"
+                  onChange={handleJugglingVideoFile}
+                  className="block w-full cursor-pointer rounded-xl border border-dashed border-slate-200 bg-white px-4 py-3 text-xs font-semibold text-slate-500 file:mr-3 file:rounded-lg file:border-0 file:bg-slate-950 file:px-3 file:py-2 file:text-xs file:font-bold file:text-white hover:border-emerald-300"
+                />
+                <p className="mt-2 text-[10px] font-semibold text-slate-400">
+                  Upload one short video showing your touch and control. Video must be under 100MB.
+                </p>
+                {(jugglingVideoFile || formData.juggling_video_url) && (
+                  <div className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-emerald-100 bg-white px-3 py-2">
+                    <p className="truncate text-xs font-bold text-slate-600">
+                      {jugglingVideoFile ? `Ready: ${jugglingVideoFile.name}` : 'Saved juggling video'}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={removeJugglingVideo}
+                      className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[10px] font-black text-red-500 hover:bg-red-50"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                      Remove
+                    </button>
+                  </div>
+                )}
+              </div>
+
               <div>
-                <label className="block text-xs font-bold text-slate-600 ml-1 mb-1.5">Highlight Video URL</label>
+                <label className="block text-xs font-bold text-slate-600 ml-1 mb-1.5">Match Highlight URL</label>
                 <input
                   type="url"
                   name="highlight_video_url"
@@ -324,7 +472,7 @@ export default function ProfileForm({ session }: ProfileFormProps) {
                   className={inputClass}
                 />
                 <p className="text-[10px] text-slate-400 font-semibold mt-1.5 ml-1 flex items-center gap-1">
-                  <Info className="w-3.5 h-3.5 text-slate-300" /> Use a YouTube or Google Drive link. No video upload needed.
+                  <Info className="w-3.5 h-3.5 text-slate-300" /> Use this for full match highlights from YouTube or Google Drive.
                 </p>
               </div>
 

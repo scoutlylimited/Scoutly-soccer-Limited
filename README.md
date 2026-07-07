@@ -1,6 +1,6 @@
 # Scoutly - Week 1 Player MVP
 
-Scoutly connects young football players in Nigeria with future scouting opportunities. This Week 1 MVP is player-only: players can sign up, log in, create/edit their own profile, and return later to view it.
+Scoutly helps young football players create clean digital profiles for future scouting opportunities. This Week 1 MVP is player-only: players can sign up, log in, create/edit their own profile, and return later to view it.
 
 ## Stack
 
@@ -15,15 +15,16 @@ Included:
 - Email/password signup and login through Supabase Auth
 - Private player dashboard / My Profile view
 - Create/edit profile form
-- Express API for the logged-in player's own profile only
-- Supabase RLS so players can only select, insert, and update their own row
+- Player photo uploads and one juggling-ball video upload through Supabase Storage
+- Supabase client reads/writes the logged-in player's own profile
+- Supabase RLS so players can only select, insert, update, and delete their own row
 
 Not included yet:
 
 - Scout, club, agent, academy, or admin accounts
 - Public profile directory, search, filtering, messaging, or contact requests
 - Video upload/storage
-- Email verification or password reset flows
+- Password reset flows
 - Verification badges
 
 ## Supabase Setup
@@ -38,8 +39,11 @@ The schema creates one `players` table where `players.id` is the same UUID as `a
 - `SELECT` where `auth.uid() = id`
 - `INSERT` where `auth.uid() = id`
 - `UPDATE` where `auth.uid() = id`
+- `DELETE` where `auth.uid() = id`
 
 There is no public read access yet.
+
+The schema also creates a public `player-media` Storage bucket for uploaded player photos and juggling videos. Upload policies only allow an authenticated player to write files inside their own folder: `player-media/{auth.uid()}/...`.
 
 ## Environment Variables
 
@@ -47,11 +51,11 @@ Create a `.env` file from [.env.example](./.env.example):
 
 ```bash
 VITE_SUPABASE_URL="https://your-project-id.supabase.co"
-VITE_SUPABASE_ANON_KEY="your-anon-key"
+VITE_SUPABASE_PUBLISHABLE_KEY="your-publishable-key"
 SUPABASE_SERVICE_ROLE_KEY="your-service-role-key"
 ```
 
-Never expose `SUPABASE_SERVICE_ROLE_KEY` in frontend code. It is used only by the Express server to verify Supabase access tokens and access the player row after authentication.
+`src/supabaseClient.js` also supports `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`. Never expose `SUPABASE_SERVICE_ROLE_KEY` in frontend code.
 
 ## Run Locally
 

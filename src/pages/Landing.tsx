@@ -42,7 +42,7 @@ const playerTypes = [
   'Academy players ready for the next tier of their career',
   'Grassroots talent without professional academy backing',
   "Players who have been overlooked despite their exceptional ability",
-  'Anyone serious about going pro - locally or internationally',
+  'Anyone serious about going pro - at home or abroad',
 ];
 
 const profileDetails = [
@@ -51,7 +51,7 @@ const profileDetails = [
   { icon: Video, title: 'Highlight links', body: 'Your best clips organized beside your profile so decision makers can review you quickly.' },
 ];
 
-const cityBadges = ['Lagos', 'Enugu', 'Kaduna', 'Port Harcourt', 'Ibadan', 'Abuja'];
+const playerBadges = ['Local clubs', 'Academies', 'School teams', 'Community leagues', 'Free agents', 'Trial-ready players'];
 
 const earlyAccessBenefits = [
   { icon: Crown, title: 'Priority ranking', body: 'Early players are easier to feature when scout and academy searches begin.' },
@@ -107,7 +107,7 @@ export default function Landing() {
             <div className="max-w-xl text-left">
               <p className="mb-4 inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.15em] text-[#86EFAC]">
                 <Zap className="h-3.5 w-3.5 text-[#22C55E] animate-pulse" />
-                Nigeria's Premier Football Waitlist
+                Global Football Talent Profiles
               </p>
               <h1 className="text-4xl font-extrabold leading-[1.05] tracking-tight sm:text-6xl lg:text-7xl font-display">
                 Get noticed.<br/>
@@ -115,8 +115,8 @@ export default function Landing() {
                 <span className="bg-gradient-to-r from-[#22C55E] to-[#10B981] bg-clip-text text-transparent">Get signed.</span>
               </h1>
               <p className="mt-6 max-w-lg text-base leading-relaxed text-slate-300 sm:text-lg">
-                Scoutly connects talented young footballers across Nigeria with scouts, agents, and academies looking
-                for the next big name. Create your profile in 10 minutes - free.
+                Scoutly helps talented young footballers turn their stats, story, and highlight links into one clean
+                profile scouts can review. Create your profile in 10 minutes - free.
               </p>
               <div className="mt-8 flex flex-col sm:flex-row gap-4">
                 <Link
@@ -214,7 +214,7 @@ export default function Landing() {
               Opportunity is not.
             </h2>
             <p className="mt-6 text-base sm:text-lg leading-relaxed text-slate-600">
-              Every week, brilliant footballers across Nigeria showcase masterclasses on local pitches. Yet, the vast
+              Every week, brilliant footballers showcase masterclasses on local pitches. Yet, the vast
               majority remain unnoticed. It isn't because they lack the ability - it is because they lack access to the
               right decision makers.
             </p>
@@ -324,13 +324,13 @@ export default function Landing() {
               Built for every footballer with a professional dream
             </h2>
             <p className="mt-4 text-slate-600 text-sm sm:text-base leading-relaxed">
-              Whether you are training in Lagos, Enugu, Kaduna, or Port Harcourt, Scoutly is your global gateway to professional representation.
+              Whether you are training with an academy, a local club, a school team, or on your own, Scoutly gives you a profile built for serious opportunities.
             </p>
             <div className="mt-7 flex flex-wrap gap-2">
-              {cityBadges.map((city) => (
-                <span key={city} className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-black text-slate-700">
+              {playerBadges.map((badge) => (
+                <span key={badge} className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-black text-slate-700">
                   <MapPinned className="h-3.5 w-3.5 text-[#16A34A]" aria-hidden="true" />
-                  {city}
+                  {badge}
                 </span>
               ))}
             </div>
@@ -400,7 +400,7 @@ export default function Landing() {
             It is completely free. It takes less than 10 minutes. And it could be the step that changes your footballing destiny.
           </p>
           <div className="grid w-full max-w-2xl gap-3 text-left sm:grid-cols-3">
-            {['No agent required', 'Mobile-friendly setup', 'Built for Nigerian talent'].map((item) => (
+            {['No agent required', 'Mobile-friendly setup', 'Built for serious players'].map((item) => (
               <div key={item} className="rounded-xl bg-slate-50 p-4 text-sm font-black text-slate-700">
                 <Compass className="mb-3 h-5 w-5 text-[#16A34A]" aria-hidden="true" />
                 {item}

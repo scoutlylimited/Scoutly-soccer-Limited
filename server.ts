@@ -9,14 +9,27 @@ dotenv.config();
 const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
-// Create a Supabase client with the service role key for administrative privileges
-const supabase = createClient(supabaseUrl, supabaseServiceKey, {
-  auth: { autoRefreshToken: false, persistSession: false },
-});
+const hasSupabaseServerConfig =
+  Boolean(supabaseUrl) &&
+  Boolean(supabaseServiceKey) &&
+  !supabaseUrl.includes('example.supabase.co') &&
+  supabaseServiceKey !== 'dummy-service-role-key' &&
+  supabaseServiceKey !== 'your-service-role-key';
+
+const supabase = hasSupabaseServerConfig
+  ? createClient(supabaseUrl, supabaseServiceKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    })
+  : null;
 
 // Middleware to verify the user's JWT
 const requireAuth = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
   const authHeader = req.headers.authorization;
+  if (!supabase) {
+    res.status(503).json({ error: 'Supabase server environment is not configured' });
+    return;
+  }
+
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     res.status(401).json({ error: 'Missing or invalid authorization header' });
     return;
@@ -77,6 +90,7 @@ async function startServer() {
         full_name, date_of_birth, nationality, position, 
         secondary_position, preferred_foot, height_cm, 
         weight_kg, current_club, bio, highlight_video_url,
+        photo_urls, juggling_video_url,
         goals, assists, matches_played, clean_sheets
       } = req.body;
       
@@ -90,6 +104,8 @@ async function startServer() {
         full_name, date_of_birth, nationality, position, 
         secondary_position, preferred_foot, height_cm, 
         weight_kg, current_club, bio, highlight_video_url,
+        photo_urls: photo_urls || [],
+        juggling_video_url,
         goals: goals || 0,
         assists: assists || 0,
         matches_played: matches_played || 0,
@@ -119,6 +135,7 @@ async function startServer() {
         'full_name', 'date_of_birth', 'nationality', 'position', 
         'secondary_position', 'preferred_foot', 'height_cm', 
         'weight_kg', 'current_club', 'bio', 'highlight_video_url',
+        'photo_urls', 'juggling_video_url',
         'goals', 'assists', 'matches_played', 'clean_sheets'
       ];
       

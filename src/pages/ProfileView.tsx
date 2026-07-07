@@ -1,31 +1,12 @@
 import { useEffect, useState } from 'react';
 import type React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Session } from '@supabase/supabase-js';
-import { Calendar, Edit3, ExternalLink, Play, Trophy, UserRound } from 'lucide-react';
+import { Calendar, Edit3, ExternalLink, Images, Play, Trophy, UserRound, Video } from 'lucide-react';
+import { fetchMyProfile, type PlayerProfile, type ScoutlySession } from '../lib/scoutlyClient';
 
 interface ProfileViewProps {
-  session: Session;
+  session: ScoutlySession;
 }
-
-type PlayerProfile = {
-  id: string;
-  full_name: string;
-  date_of_birth?: string | null;
-  nationality?: string | null;
-  position?: string | null;
-  secondary_position?: string | null;
-  preferred_foot?: string | null;
-  height_cm?: number | null;
-  weight_kg?: number | null;
-  current_club?: string | null;
-  bio?: string | null;
-  highlight_video_url?: string | null;
-  goals?: number | null;
-  assists?: number | null;
-  matches_played?: number | null;
-  clean_sheets?: number | null;
-};
 
 const statLabels = [
   ['matches_played', 'Matches'],
@@ -41,33 +22,33 @@ export default function ProfileView({ session }: ProfileViewProps) {
   const navigate = useNavigate();
 
   useEffect(() => {
-    async function fetchProfile() {
-      try {
-        const response = await fetch('/api/players/me', {
-          headers: {
-            Authorization: `Bearer ${session.access_token}`,
-          },
-        });
+    let mounted = true;
 
-        if (response.status === 404) {
-          navigate('/profile/edit');
+    async function loadProfile() {
+      try {
+        const savedProfile = await fetchMyProfile(session);
+
+        if (!mounted) return;
+
+        if (!savedProfile) {
+          navigate('/profile/edit', { replace: true });
           return;
         }
 
-        if (!response.ok) {
-          throw new Error('Failed to fetch your profile');
-        }
-
-        setProfile(await response.json());
+        setProfile(savedProfile);
       } catch (err: any) {
-        setError(err.message);
+        if (mounted) setError(err.message || 'Failed to fetch your profile.');
       } finally {
-        setLoading(false);
+        if (mounted) setLoading(false);
       }
     }
 
-    fetchProfile();
-  }, [session.access_token, navigate]);
+    loadProfile();
+
+    return () => {
+      mounted = false;
+    };
+  }, [session, navigate]);
 
   const getYouTubeEmbedUrl = (url?: string | null) => {
     if (!url) return null;
@@ -95,18 +76,32 @@ export default function ProfileView({ session }: ProfileViewProps) {
   if (!profile) return null;
 
   const youtubeEmbedUrl = getYouTubeEmbedUrl(profile.highlight_video_url);
+  const photoUrls = profile.photo_urls || [];
 
   return (
     <div className="space-y-5 pb-16 pt-2">
       <section className="overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-sm shadow-slate-100/50">
         <div className="bg-slate-950 p-6 text-white">
           <div className="flex items-start justify-between gap-4">
-            <div className="min-w-0">
-              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#86EFAC]">Player dashboard</p>
-              <h1 className="mt-3 truncate text-3xl font-black tracking-tight">{profile.full_name}</h1>
-              <p className="mt-2 text-sm font-semibold text-slate-300">
-                {profile.position || 'Position not added'}{profile.secondary_position ? ` / ${profile.secondary_position}` : ''}
-              </p>
+            <div className="flex min-w-0 items-center gap-4">
+              {photoUrls[0] ? (
+                <img
+                  src={photoUrls[0]}
+                  alt={profile.full_name}
+                  className="h-16 w-16 shrink-0 rounded-2xl border border-white/10 object-cover"
+                />
+              ) : (
+                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-xl font-black text-[#86EFAC]">
+                  {profile.full_name?.slice(0, 2).toUpperCase() || 'SC'}
+                </div>
+              )}
+              <div className="min-w-0">
+                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#86EFAC]">Player dashboard</p>
+                <h1 className="mt-3 truncate text-3xl font-black tracking-tight">{profile.full_name}</h1>
+                <p className="mt-2 text-sm font-semibold text-slate-300">
+                  {profile.position || 'Position not added'}{profile.secondary_position ? ` / ${profile.secondary_position}` : ''}
+                </p>
+              </div>
             </div>
             <Link
               to="/profile/edit"
@@ -127,6 +122,42 @@ export default function ProfileView({ session }: ProfileViewProps) {
           <InfoRow label="Weight" value={profile.weight_kg ? `${profile.weight_kg} kg` : 'Not added'} />
         </div>
       </section>
+
+      {photoUrls.length > 0 && (
+        <section className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm shadow-slate-100/50">
+          <p className="mb-3 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400">
+            <Images className="h-3.5 w-3.5 text-[#22C55E]" aria-hidden="true" />
+            Player photos
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            {photoUrls.map((photoUrl) => (
+              <img
+                key={photoUrl}
+                src={photoUrl}
+                alt="Player media"
+                className="aspect-square w-full rounded-2xl border border-slate-100 object-cover"
+              />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {profile.juggling_video_url && (
+        <section>
+          <p className="mb-2 ml-1 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400">
+            <Video className="h-3.5 w-3.5 text-[#22C55E]" aria-hidden="true" />
+            Juggling ball video
+          </p>
+          <div className="overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-sm">
+            <video
+              className="aspect-video w-full bg-slate-950"
+              src={profile.juggling_video_url}
+              controls
+              playsInline
+            />
+          </div>
+        </section>
+      )}
 
       <section>
         <p className="mb-2 ml-1 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400">
